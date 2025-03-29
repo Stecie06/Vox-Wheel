@@ -2,6 +2,7 @@ import speech_recognition as sr
 import pyttsx3
 import RPi.GPIO as GPIO
 import time
+from googletrans import Translator
 
 # Motor GPIO Pins
 MOTOR_LEFT_FORWARD = 17
@@ -22,9 +23,13 @@ GPIO.setup(MOTOR_RIGHT_BACKWARD, GPIO.OUT)
 GPIO.setup(TRIG, GPIO.OUT)
 GPIO.setup(ECHO, GPIO.IN)
 
+translator = Translator()
+selected_language = "en"  # Default language is English
+
 def speak(text):
     engine = pyttsx3.init()
-    engine.say(text)
+    translated_text = translator.translate(text, dest=selected_language).text
+    engine.say(translated_text)
     engine.runAndWait()
 
 def recognize_command():
@@ -34,7 +39,7 @@ def recognize_command():
         recognizer.adjust_for_ambient_noise(source)
         try:
             audio = recognizer.listen(source, timeout=5)
-            command = recognizer.recognize_google(audio).lower()
+            command = recognizer.recognize_google(audio, language=selected_language).lower()
             print(f"Recognized command: {command}")
             return command
         except sr.UnknownValueError:
@@ -98,6 +103,7 @@ def stop():
     GPIO.output(MOTOR_RIGHT_BACKWARD, False)
 
 def process_command(command):
+    global selected_language
     if command in ["forward", "move forward", "go ahead"]:
         speak("Moving forward")
         move_forward()
@@ -113,6 +119,10 @@ def process_command(command):
     elif command in ["stop", "halt"]:
         speak("Stopping")
         stop()
+    elif command.startswith("set language to"):
+        new_language = command.replace("set language to", "").strip()
+        speak(f"Changing language to {new_language}")
+        selected_language = new_language
     else:
         speak("Unknown command")
 
