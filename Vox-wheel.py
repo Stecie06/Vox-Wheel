@@ -2,6 +2,7 @@ import speech_recognition as sr
 import pyttsx3
 import RPi.GPIO as GPIO
 import time
+import pygame
 from googletrans import Translator
 
 # Motor GPIO Pins
@@ -23,8 +24,17 @@ GPIO.setup(MOTOR_RIGHT_BACKWARD, GPIO.OUT)
 GPIO.setup(TRIG, GPIO.OUT)
 GPIO.setup(ECHO, GPIO.IN)
 
+# Initialize Pygame for joystick control
+pygame.init()
+if pygame.joystick.get_count() > 0:
+    joystick = pygame.joystick.Joystick(0)
+    joystick.init()
+else:
+    joystick = None
+
 translator = Translator()
 selected_language = "en"  # Default language is English
+use_joystick = False  # Default to voice control
 
 def speak(text):
     engine = pyttsx3.init()
@@ -69,7 +79,7 @@ def measure_distance():
     return distance
 
 def move_forward():
-    if measure_distance() > 20:  # Move only if obstacle is not close
+    if measure_distance() > 20:
         GPIO.output(MOTOR_LEFT_FORWARD, True)
         GPIO.output(MOTOR_RIGHT_FORWARD, True)
         GPIO.output(MOTOR_LEFT_BACKWARD, False)
@@ -103,7 +113,7 @@ def stop():
     GPIO.output(MOTOR_RIGHT_BACKWARD, False)
 
 def process_command(command):
-    global selected_language
+    global selected_language, use_joystick
     if command in ["forward", "move forward", "go ahead"]:
         speak("Moving forward")
         move_forward()
@@ -123,15 +133,41 @@ def process_command(command):
         new_language = command.replace("set language to", "").strip()
         speak(f"Changing language to {new_language}")
         selected_language = new_language
+    elif command in ["switch to joystick", "use joystick"]:
+        speak("Switching to joystick control")
+        use_joystick = True
+    elif command in ["switch to voice", "use voice control"]:
+        speak("Switching to voice control")
+        use_joystick = False
     else:
         speak("Unknown command")
+
+def joystick_control():
+    pygame.event.pump()
+    y_axis = joystick.get_axis(1)
+    x_axis = joystick.get_axis(0)
+    
+    if y_axis < -0.5:
+        move_forward()
+    elif y_axis > 0.5:
+        move_backward()
+    elif x_axis < -0.5:
+        turn_left()
+    elif x_axis > 0.5:
+        turn_right()
+    else:
+        stop()
 
 if __name__ == "__main__":
     try:
         while True:
-            command = recognize_command()
-            if command:
-                process_command(command)
+            if use_joystick and joystick:
+                joystick_control()
+            else:
+                command = recognize_command()
+                if command:
+                    process_command(command)
     except KeyboardInterrupt:
         print("Exiting...")
         GPIO.cleanup()
+        pygame.quit()
