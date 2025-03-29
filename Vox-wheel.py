@@ -1,5 +1,19 @@
 import speech_recognition as sr
 import pyttsx3
+import RPi.GPIO as GPIO
+
+# Motor GPIO Pins
+MOTOR_LEFT_FORWARD = 17
+MOTOR_LEFT_BACKWARD = 18
+MOTOR_RIGHT_FORWARD = 22
+MOTOR_RIGHT_BACKWARD = 23
+
+# Setup GPIO
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(MOTOR_LEFT_FORWARD, GPIO.OUT)
+GPIO.setup(MOTOR_LEFT_BACKWARD, GPIO.OUT)
+GPIO.setup(MOTOR_RIGHT_FORWARD, GPIO.OUT)
+GPIO.setup(MOTOR_RIGHT_BACKWARD, GPIO.OUT)
 
 def speak(text):
     engine = pyttsx3.init()
@@ -26,27 +40,61 @@ def recognize_command():
             print("Listening timed out.")
             return None
 
+def move_forward():
+    GPIO.output(MOTOR_LEFT_FORWARD, True)
+    GPIO.output(MOTOR_RIGHT_FORWARD, True)
+    GPIO.output(MOTOR_LEFT_BACKWARD, False)
+    GPIO.output(MOTOR_RIGHT_BACKWARD, False)
+
+def move_backward():
+    GPIO.output(MOTOR_LEFT_FORWARD, False)
+    GPIO.output(MOTOR_RIGHT_FORWARD, False)
+    GPIO.output(MOTOR_LEFT_BACKWARD, True)
+    GPIO.output(MOTOR_RIGHT_BACKWARD, True)
+
+def turn_left():
+    GPIO.output(MOTOR_LEFT_FORWARD, False)
+    GPIO.output(MOTOR_RIGHT_FORWARD, True)
+    GPIO.output(MOTOR_LEFT_BACKWARD, False)
+    GPIO.output(MOTOR_RIGHT_BACKWARD, False)
+
+def turn_right():
+    GPIO.output(MOTOR_LEFT_FORWARD, True)
+    GPIO.output(MOTOR_RIGHT_FORWARD, False)
+    GPIO.output(MOTOR_LEFT_BACKWARD, False)
+    GPIO.output(MOTOR_RIGHT_BACKWARD, False)
+
+def stop():
+    GPIO.output(MOTOR_LEFT_FORWARD, False)
+    GPIO.output(MOTOR_RIGHT_FORWARD, False)
+    GPIO.output(MOTOR_LEFT_BACKWARD, False)
+    GPIO.output(MOTOR_RIGHT_BACKWARD, False)
+
 def process_command(command):
     if command in ["forward", "move forward", "go ahead"]:
         speak("Moving forward")
-        # Send motor command here
+        move_forward()
     elif command in ["backward", "move back", "reverse"]:
         speak("Moving backward")
-        # Send motor command here
+        move_backward()
     elif command in ["left", "turn left"]:
         speak("Turning left")
-        # Send motor command here
+        turn_left()
     elif command in ["right", "turn right"]:
         speak("Turning right")
-        # Send motor command here
+        turn_right()
     elif command in ["stop", "halt"]:
         speak("Stopping")
-        # Send stop command here
+        stop()
     else:
         speak("Unknown command")
 
 if __name__ == "__main__":
-    while True:
-        command = recognize_command()
-        if command:
-            process_command(command)
+    try:
+        while True:
+            command = recognize_command()
+            if command:
+                process_command(command)
+    except KeyboardInterrupt:
+        print("Exiting...")
+        GPIO.cleanup()
