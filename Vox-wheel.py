@@ -35,12 +35,30 @@ else:
 translator = Translator()
 selected_language = "en"  # Default language is English
 use_joystick = False  # Default to voice control
+registered_user_voice = None
 
 def speak(text):
     engine = pyttsx3.init()
     translated_text = translator.translate(text, dest=selected_language).text
     engine.say(translated_text)
     engine.runAndWait()
+
+def register_user_voice():
+    global registered_user_voice
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        speak("Please say a phrase to register your voice")
+        recognizer.adjust_for_ambient_noise(source)
+        try:
+            audio = recognizer.listen(source, timeout=5)
+            registered_user_voice = recognizer.recognize_google(audio, language=selected_language)
+            speak("Voice registered successfully")
+        except sr.UnknownValueError:
+            speak("Could not understand your voice. Please try again.")
+        except sr.RequestError:
+            speak("Speech Recognition service is unavailable.")
+        except sr.WaitTimeoutError:
+            speak("Listening timed out. Please try again.")
 
 def recognize_command():
     recognizer = sr.Recognizer()
@@ -51,6 +69,12 @@ def recognize_command():
             audio = recognizer.listen(source, timeout=5)
             command = recognizer.recognize_google(audio, language=selected_language).lower()
             print(f"Recognized command: {command}")
+            
+            # Verify if voice matches registered user
+            if registered_user_voice and registered_user_voice not in command:
+                speak("Voice not recognized. Please register your voice or try again.")
+                return None
+            
             return command
         except sr.UnknownValueError:
             print("Could not understand the command.")
@@ -139,6 +163,8 @@ def process_command(command):
     elif command in ["switch to voice", "use voice control"]:
         speak("Switching to voice control")
         use_joystick = False
+    elif command in ["register my voice", "set my voice"]:
+        register_user_voice()
     else:
         speak("Unknown command")
 
