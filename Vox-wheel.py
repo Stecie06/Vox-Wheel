@@ -1,6 +1,7 @@
 import speech_recognition as sr
 import pyttsx3
 import RPi.GPIO as GPIO
+import time
 
 # Motor GPIO Pins
 MOTOR_LEFT_FORWARD = 17
@@ -8,12 +9,18 @@ MOTOR_LEFT_BACKWARD = 18
 MOTOR_RIGHT_FORWARD = 22
 MOTOR_RIGHT_BACKWARD = 23
 
+# Ultrasonic Sensor Pins
+TRIG = 24
+ECHO = 25
+
 # Setup GPIO
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(MOTOR_LEFT_FORWARD, GPIO.OUT)
 GPIO.setup(MOTOR_LEFT_BACKWARD, GPIO.OUT)
 GPIO.setup(MOTOR_RIGHT_FORWARD, GPIO.OUT)
 GPIO.setup(MOTOR_RIGHT_BACKWARD, GPIO.OUT)
+GPIO.setup(TRIG, GPIO.OUT)
+GPIO.setup(ECHO, GPIO.IN)
 
 def speak(text):
     engine = pyttsx3.init()
@@ -40,11 +47,31 @@ def recognize_command():
             print("Listening timed out.")
             return None
 
+def measure_distance():
+    GPIO.output(TRIG, True)
+    time.sleep(0.00001)
+    GPIO.output(TRIG, False)
+    start_time = time.time()
+    stop_time = time.time()
+    
+    while GPIO.input(ECHO) == 0:
+        start_time = time.time()
+    while GPIO.input(ECHO) == 1:
+        stop_time = time.time()
+    
+    elapsed_time = stop_time - start_time
+    distance = (elapsed_time * 34300) / 2  # Distance in cm
+    return distance
+
 def move_forward():
-    GPIO.output(MOTOR_LEFT_FORWARD, True)
-    GPIO.output(MOTOR_RIGHT_FORWARD, True)
-    GPIO.output(MOTOR_LEFT_BACKWARD, False)
-    GPIO.output(MOTOR_RIGHT_BACKWARD, False)
+    if measure_distance() > 20:  # Move only if obstacle is not close
+        GPIO.output(MOTOR_LEFT_FORWARD, True)
+        GPIO.output(MOTOR_RIGHT_FORWARD, True)
+        GPIO.output(MOTOR_LEFT_BACKWARD, False)
+        GPIO.output(MOTOR_RIGHT_BACKWARD, False)
+    else:
+        speak("Obstacle detected, stopping")
+        stop()
 
 def move_backward():
     GPIO.output(MOTOR_LEFT_FORWARD, False)
